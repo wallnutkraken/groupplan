@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/gin-gonic/autotls"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/sessions"
 	"github.com/markbates/goth"
@@ -38,13 +39,18 @@ func New(cfg config.AppSettings, userMan *userman.Manager) Endpoint {
 		userMan: userMan,
 	}
 	// Start the goth discord provider
-	goth.UseProviders(discord.New(cfg.DiscordKey, cfg.DiscordSecret, "http://fastvote.online/auth/discord/callback", discord.ScopeIdentify, discord.ScopeEmail))
+	goth.UseProviders(discord.New(cfg.DiscordKey, cfg.DiscordSecret, "https://fastvote.online/auth/discord/callback", discord.ScopeIdentify, discord.ScopeEmail))
 	gothic.Store = sessions.NewFilesystemStore(os.TempDir(), []byte("goth-example"))
 
 	// Add the HTML template Glob(?)
 	e.router.LoadHTMLGlob("frontend/*/*.html")
 	// And HTML endpoint methods
 	e.router.GET("", e.Index)
+
+	// Ping handler
+	e.router.GET("/ping", func(c *gin.Context) {
+		c.String(http.StatusOK, "pong")
+	})
 
 	// Add the groups
 	e.authGroup = e.router.Group("auth")
@@ -109,10 +115,10 @@ func (e Endpoint) AuthCallback(ctx *gin.Context) {
 		return
 	}
 	ctx.SetCookie(authCookie, string(jsonData), 3600*24, "", "fastvote.online", false, false)
-	ctx.Redirect(http.StatusFound, "http://fastvote.online")
+	ctx.Redirect(http.StatusFound, "https://fastvote.online")
 }
 
 // Start starts listening, this is a blocking call
 func (e Endpoint) Start() error {
-	return e.router.Run(fmt.Sprintf(":%d", e.port))
+	return autotls.Run(e.router, "fastvote.online")
 }
