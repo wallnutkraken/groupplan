@@ -3,8 +3,11 @@ package httpend
 
 import (
 	"fmt"
+	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/sessions"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/discord"
@@ -29,14 +32,18 @@ func New(cfg config.AppSettings, userMan *userman.Manager) Endpoint {
 		userMan: userMan,
 	}
 	// Start the goth discord provider
-	goth.UseProviders(discord.New(cfg.DiscordKey, cfg.DiscordSecret, "http://fastvote.online/auth/callback", discord.ScopeIdentify, discord.ScopeEmail))
+	goth.UseProviders(discord.New(cfg.DiscordKey, cfg.DiscordSecret, "http://fastvote.online/auth/discord/callback", discord.ScopeIdentify, discord.ScopeEmail))
+	gothic.Store = sessions.NewFilesystemStore(os.TempDir(), []byte("goth-example"))
+
+	// Add the HTML template Glob(?)
+	e.router.LoadHTMLGlob("frontend/*/*/*")
 
 	// Add the groups
 	e.authGroup = e.router.Group("auth")
 
 	// Auth group methods
-	e.authGroup.GET("", e.StartAuth)
-	e.authGroup.GET("callback", e.AuthCallback)
+	e.authGroup.GET(":provider", e.StartAuth)
+	e.authGroup.GET(":provider/callback", e.AuthCallback)
 
 	return e
 }
@@ -44,7 +51,7 @@ func New(cfg config.AppSettings, userMan *userman.Manager) Endpoint {
 // StartAuth is the endpoint to begin the authentication process
 func (e Endpoint) StartAuth(ctx *gin.Context) {
 	// Add the discord provider to the context so that gothic knows what we're trying to authenticate with
-	req := gothic.GetContextWithProvider(ctx.Request, "discord")
+	req := gothic.GetContextWithProvider(ctx.Request, ctx.Param("provider"))
 
 	// First, try to get the user without re-authenticating
 	if user, err := gothic.CompleteUserAuth(ctx.Writer, req); err == nil {
@@ -56,13 +63,13 @@ func (e Endpoint) StartAuth(ctx *gin.Context) {
 
 // AuthCallback is the HTTP endpoint for the Discord authorization callback
 func (e Endpoint) AuthCallback(ctx *gin.Context) {
-	req := gothic.GetContextWithProvider(ctx.Request, "discord")
+	req := gothic.GetContextWithProvider(ctx.Request, ctx.Param("provider"))
 	user, err := gothic.CompleteUserAuth(ctx.Writer, req)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
-	fmt.Printf("%+v", user)
+	ctx.HTML(http.StatusOK, "discord.html", user)
 }
 
 // Start starts listening, this is a blocking call
