@@ -2,40 +2,32 @@
 package httpend
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
+	"golang.org/x/crypto/acme/autocert"
+
 	"github.com/gin-gonic/autotls"
 	"github.com/gin-gonic/gin"
-	"github.com/markbates/goth"
-	"github.com/markbates/goth/gothic"
-	"github.com/markbates/goth/providers/discord"
-	"github.com/sirupsen/logrus"
 	"github.com/wallnutkraken/groupplan/config"
+	"github.com/wallnutkraken/groupplan/httpend/userauth"
 	"github.com/wallnutkraken/groupplan/userman"
 )
 
 // Endpoint is the object used to start and handle the HTTP endpoint
 type Endpoint struct {
-	router  *gin.Engine
-	userMan *userman.Manager
-
-	authGroup *gin.RouterGroup
+	hostname    string
+	router      *gin.Engine
+	authHandler *userauth.Handler
 }
-
-const (
-	authCookie = "groupplan_authorization_details"
-)
 
 // New creates a new instance of the HTTP endpoint with the given port
 func New(cfg config.AppSettings, userMan *userman.Manager) Endpoint {
 	e := Endpoint{
-		router:  gin.Default(),
-		userMan: userMan,
+		router:   gin.Default(),
+		hostname: cfg.Hostname,
 	}
-	// Start the goth discord provider
-	goth.UseProviders(discord.New(cfg.DiscordKey, cfg.DiscordSecret, fmt.Sprintf("https://%s/auth/discord/callback", cfg.Hostname), discord.ScopeIdentify, discord.ScopeEmail))
+	e.authHandler = userauth.New(e.router, userMan, cfg)
 
 	// Add the HTML template Glob(?)
 	e.router.LoadHTMLGlob("frontend/*/*.html")
@@ -47,73 +39,26 @@ func New(cfg config.AppSettings, userMan *userman.Manager) Endpoint {
 		c.String(http.StatusOK, "pong")
 	})
 
-	// Add the groups
-	e.authGroup = e.router.Group("auth")
-
-	// Auth group methods
-	e.authGroup.GET(":provider", e.StartAuth)
-	e.authGroup.GET(":provider/callback", e.AuthCallback)
-
 	return e
 }
 
 // Index returns the HTML index document
 func (e Endpoint) Index(ctx *gin.Context) {
-	// First, try and get the user info. If that fails, give them login.html
-	// Otherwise, give them the dashboard.html
-	var user goth.User
-
-	// Get the auth cookie
-	cookie, err := ctx.Cookie(authCookie)
+	user, err := e.authHandler.GetJWT(ctx)
 	if err != nil {
-		// Just send them to the login
-		ctx.HTML(http.StatusUnauthorized, "login.html", nil)
+		// User not authed, send them to login
+		ctx.HTML(http.StatusOK, "login.html", nil)
 		return
 	}
-	// Decode the cookie
-	if err := json.Unmarshal([]byte(cookie), &user); err != nil {
-		// Failed to do the cookie, just go to login again
-		ctx.HTML(http.StatusUnauthorized, "login.html", nil)
-		return
-	}
+	// User authed, give them the dashboard
 	ctx.HTML(http.StatusOK, "dashboard.html", user)
-}
-
-// StartAuth is the endpoint to begin the authentication process
-func (e Endpoint) StartAuth(ctx *gin.Context) {
-	// Add the discord provider to the context so that gothic knows what we're trying to authenticate with
-	req := gothic.GetContextWithProvider(ctx.Request, ctx.Param("provider"))
-
-	// First, try to get the user without re-authenticating
-	if user, err := gothic.CompleteUserAuth(ctx.Writer, req); err == nil {
-		fmt.Printf("%+v\n", user)
-	} else {
-		gothic.BeginAuthHandler(ctx.Writer, req)
-	}
-}
-
-// AuthCallback is the HTTP endpoint for the Discord authorization callback
-func (e Endpoint) AuthCallback(ctx *gin.Context) {
-	req := gothic.GetContextWithProvider(ctx.Request, ctx.Param("provider"))
-
-	user, err := gothic.CompleteUserAuth(ctx.Writer, req)
-	if err != nil {
-		logrus.WithError(err).Error("Failed completing user authentication")
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-	// Add the Authorization cookie, first, jsonify the user, then put it in the cookie
-	jsonData, err := json.Marshal(user)
-	if err != nil {
-		logrus.WithError(err).Errorf("Failed marshalling User to JSON: %+v", user)
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-	ctx.SetCookie(authCookie, string(jsonData), 3600*24, "", "fastvote.online", false, false)
-	ctx.Redirect(http.StatusFound, "https://fastvote.online")
 }
 
 // Start starts listening, this is a blocking call
 func (e Endpoint) Start() error {
-	return autotls.Run(e.router, "fastvote.online")
+	return autotls.Run(e.router, "www.fastvote.online", e.hostname)
+	return autotls.RunWithManager(e.router, &autocert.Manager{
+		Prompt:     autocert.AcceptTOS,
+		HostPolicy: autocert.HostWhitelist(e.hostname, fmt.Sprintf("www.%s", e.hostname)),
+	})
 }

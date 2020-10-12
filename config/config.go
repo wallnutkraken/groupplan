@@ -2,12 +2,7 @@
 package config
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -18,31 +13,14 @@ const ConfigPath = "groupplan.config.json"
 
 // AppSettings contains the application settings
 type AppSettings struct {
-	Hostname        string
-	DiscordKey      string
-	DiscordSecret   string
-	ECDSAPrivateKey string
+	Hostname      string
+	DiscordKey    string
+	DiscordSecret string
 }
 
-// GetDefault returns the default settings object with a generate private key
+// GetDefault returns the default settings object
 func GetDefault() AppSettings {
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		panic("could not create an ecdsa private key: " + err.Error())
-	}
-	// Encode to x509
-	encoded, err := x509.MarshalECPrivateKey(key)
-	if err != nil {
-		panic("could not marshal to x509: " + err.Error())
-	}
-
-	pemEncoded := pem.EncodeToMemory(&pem.Block{
-		Type:  "PRIVATE KEY",
-		Bytes: encoded,
-	})
-	return AppSettings{
-		ECDSAPrivateKey: string(pemEncoded),
-	}
+	return AppSettings{}
 }
 
 // Load loads the settings file (from current working directory)

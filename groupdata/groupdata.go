@@ -53,5 +53,12 @@ func (d Data) migrate() error {
 	allDataTypes := []interface{}{}
 	allDataTypes = append(allDataTypes, users.AllTypes()...)
 
-	return d.db.AutoMigrate(allDataTypes...)
+	// Migrate the data types first
+	if err := d.db.AutoMigrate(allDataTypes...); err != nil {
+		return fmt.Errorf("failed migrating data types: %w", err)
+	}
+
+	// Now migrate the necessary data from each package
+	fmt.Println("Migrating!")
+	return users.Migrate(d.db)
 }

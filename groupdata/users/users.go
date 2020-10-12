@@ -33,15 +33,24 @@ func (u UserHandler) GetProviders() ([]AuthenticationProvider, error) {
 	return prov, nil
 }
 
+// GetProvider returns a single provider with a matching name
+func (u UserHandler) GetProvider(name string) (prov AuthenticationProvider, err error) {
+	if err = u.db.Where(AuthenticationProvider{Name: name}).First(&prov).Error; err != nil {
+		err = fmt.Errorf("failed finding provider: %w", err)
+	}
+	return
+}
+
 // GetOrCreateUser tries to get the record for the given user Email address. If that fails, it
 // will create a new user with that email and return it. It also takes an avatarURL parameter.
 // As any time we would be authenticating a user, we'd have their avatar URL, we'll past it here
 // for the purposes of creating a user. If the user already exists, this URL will not change the one
 // stored in the database.
-func (u UserHandler) GetOrCreateUser(email, avatarURL string) (User, error) {
+func (u UserHandler) GetOrCreateUser(email, avatarURL, displayName string) (User, error) {
 	usr := User{
 		Email:             email,
 		ProfilePictureURL: avatarURL,
+		DisplayName:       displayName,
 	}
 	if err := u.db.Preload(clause.Associations).Where(User{Email: email}).FirstOrCreate(&usr).Error; err != nil {
 		return usr, fmt.Errorf("failed getting/creating user with email [%s]: %w", email, err)
@@ -75,6 +84,7 @@ type AuthenticationProvider struct {
 type User struct {
 	gorm.Model
 	Email             string `gorm:"unique"`
+	DisplayName       string
 	ProfilePictureURL string
 	AuthPoints        []UserAuthPoint `gorm:"foreignKey:UserID"`
 }
