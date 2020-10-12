@@ -5,12 +5,24 @@ import "github.com/wallnutkraken/groupplan/groupdata/users"
 
 // Manager is responsible for user operations with the data layer
 type Manager struct {
-	users users.UserHandler
+	users UserHandler
+}
+
+// UserHandler is the interface for what methods the user persistency layer should provide UserMan
+type UserHandler interface {
+	GetProviders() ([]users.AuthenticationProvider, error)
+	GetOrCreateUser(email, avatarURL string) (users.User, error)
+	UserAuthorizedWith(user users.User, provider users.AuthenticationProvider, identifier string) (users.UserAuthPoint, error)
 }
 
 // New creates a new instance of the user manager
-func New(userData users.UserHandler) *Manager {
+func New(userData UserHandler) *Manager {
 	return &Manager{
 		users: userData,
 	}
+}
+
+// Authenticate takes a
+func (m *Manager) Authenticate() {
+
 }

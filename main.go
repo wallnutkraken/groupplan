@@ -18,7 +18,7 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		// Couldn't read the config, write a new one and inform the user
-		if err := cfg.Save(); err != nil {
+		if err := config.GetDefault().Save(); err != nil {
 			// Failed to write, inform the user and exit
 			fmt.Printf("Failed to create a config file at [%s], check your file permissions", config.ConfigPath)
 			os.Exit(1)
