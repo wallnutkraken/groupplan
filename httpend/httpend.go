@@ -29,8 +29,9 @@ func New(cfg config.AppSettings, userMan *userman.Manager) Endpoint {
 	}
 	e.authHandler = userauth.New(e.router, userMan, cfg)
 
-	// Add the HTML template Glob(?)
-	e.router.LoadHTMLGlob("frontend/*/*.html")
+	// Add the HTML template Glob(?) and a handler for static files
+	e.router.LoadHTMLGlob("frontend/html/*/*.html")
+	e.router.StaticFS("static", http.Dir("frontend/static"))
 	// And HTML endpoint methods
 	e.router.GET("", e.Index)
 

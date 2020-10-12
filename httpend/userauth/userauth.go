@@ -4,6 +4,7 @@ package userauth
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -139,6 +140,8 @@ func (h Handler) AuthCallback(ctx *gin.Context) {
 
 	// Create user info. We don't actually care about the returned object here, because err being nil
 	// guarantees we actually created the user
+	f, _ := json.Marshal(user)
+	fmt.Printf("%s", string(f))
 	_, err = h.userMan.Authenticate(user.Email, user.AvatarURL, provider, user.UserID, user.Name)
 	if err != nil {
 		// Aight, err wasn't nil

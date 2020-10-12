@@ -1,0 +1,15 @@
+div.authprovider {
+    z-index: 2;
+    margin: 30px;
+}
+
+div.providers {
+    z-index: 1;
+    margin-top: 5%;
+    width: auto;
+    height: 50%;
+    background-color: white;
+    border-radius: 25px;
+    border: 2px solid lightblue;
+    display: block;
+}
