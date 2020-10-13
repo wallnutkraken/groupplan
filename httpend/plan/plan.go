@@ -35,6 +35,7 @@ func New(router *gin.Engine, auth userauth.Authenticator, planner planman.Planne
 	handl.group.PUT("", handl.NewPlan)
 	handl.group.GET(":identifier", handl.GetPlan)
 	handl.group.GET("", handl.MyPlans)
+	handl.group.PUT(":identifier", handl.AddEntry)
 
 	return handl
 }
@@ -128,4 +129,36 @@ func (h Handler) MyPlans(ctx *gin.Context) {
 
 	// Got the plan list, return it to the consumer
 	ctx.JSON(http.StatusOK, plans)
+}
+
+// AddEntry adds a new availability entry to a given plan
+func (h Handler) AddEntry(ctx *gin.Context) {
+	// Check authorization
+	user, err := h.auther.GetJWT(ctx)
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, shtypes.NewUserError("Please log in"))
+		return
+	}
+	// Read the request body
+	req := AddEntryRequest{}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.AbortWithStatusJSON(http.StatusUnprocessableEntity, shtypes.NewUserError(err.Error()))
+		return
+	}
+
+	entry, err := h.planner.AddEntry(ctx.Param("identifier"), user, req.StartTime, req.DurationSeconds)
+	if err != nil {
+		if errors.As(err, &dataerror.BaseError{}) {
+			ctx.AbortWithStatusJSON(http.StatusUnprocessableEntity, shtypes.NewUserError(err.Error()))
+			return
+		}
+		// Non-user error, log it and return 500
+		refErr := shtypes.NewServerError()
+		logrus.WithError(err).Errorf("[%s]", refErr.Reference)
+		ctx.AbortWithStatusJSON(http.StatusInternalServerError, refErr)
+		return
+	}
+
+	// Entry created, return the created object to the user
+	ctx.JSON(http.StatusCreated, entry)
 }

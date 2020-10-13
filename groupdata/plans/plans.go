@@ -45,7 +45,7 @@ func (p *PlanHandler) CreatePlan(plan *Plan) error {
 
 // GetPlan returns an existing Plan by the identifier
 func (p *PlanHandler) GetPlan(identifier string) (plan Plan, err error) {
-	if err = p.db.Preload(clause.Associations).Where(Plan{Identifier: identifier}).First(&plan).Error; err != nil {
+	if err = p.db.Preload("Entries.User").Preload(clause.Associations).Where(Plan{Identifier: identifier}).First(&plan).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			err = dataerror.ErrBasic("no such plan exists")
 		}

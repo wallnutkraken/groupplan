@@ -21,7 +21,7 @@ type PlanData interface {
 	CreatePlan(plan *plans.Plan) error
 	GetPlan(identifier string) (plan plans.Plan, err error)
 	DeletePlan(plan plans.Plan) error
-	AddEntry(plan *plans.Plan, user users.User, availFrom, availTo int64) (plans.PlanEntry, error)
+	AddEntry(plan *plans.Plan, user users.User, availFrom, duration int64) (plans.PlanEntry, error)
 	GetPlansByUser(user users.User) ([]plans.Plan, error)
 }
 
@@ -79,14 +79,14 @@ func (p Planner) GetPlans(user users.User) ([]GroupPlan, error) {
 }
 
 // AddEntry creates a new entry for availability for a plan, identified by the given identifier.
-func (p Planner) AddEntry(planIdentifier string, user users.User, startAtUnix, endAtUnix int64) (PlanEntry, error) {
+func (p Planner) AddEntry(planIdentifier string, user users.User, startAtUnix, duration int64) (PlanEntry, error) {
 	// Get the plan based on identifier
 	plan, err := p.data.GetPlan(planIdentifier)
 	if err != nil {
 		return PlanEntry{}, fmt.Errorf("no plan: %w", err)
 	}
 
-	createdEntry, err := p.data.AddEntry(&plan, user, startAtUnix, endAtUnix)
+	createdEntry, err := p.data.AddEntry(&plan, user, startAtUnix, duration)
 	if err != nil {
 		return PlanEntry{}, fmt.Errorf("failed saving entry: %w", err)
 	}
