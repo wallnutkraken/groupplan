@@ -1,1 +1,3 @@
 node_modules
+# This is the compiled js
+groupplan.js
