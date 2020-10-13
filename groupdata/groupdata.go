@@ -49,6 +49,11 @@ func (d Data) Users() users.UserHandler {
 	return users.New(d.db)
 }
 
+// Plans returns the plan handler
+func (d Data) Plans() *plans.PlanHandler {
+	return plans.New(d.db)
+}
+
 // migrate collects all the database data types and calls gorm's AutoMigrate method
 // to migrate the schema to the database
 func (d Data) migrate() error {

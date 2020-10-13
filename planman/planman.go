@@ -2,10 +2,12 @@
 package planman
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/wallnutkraken/groupplan/groupdata/plans"
 	"github.com/wallnutkraken/groupplan/groupdata/users"
+	"github.com/wallnutkraken/groupplan/secid"
 	"github.com/wallnutkraken/groupplan/userman"
 )
 
@@ -20,6 +22,7 @@ type PlanData interface {
 	GetPlan(identifier string) (plan plans.Plan, err error)
 	DeletePlan(plan plans.Plan) error
 	AddEntry(plan *plans.Plan, user users.User, availFrom, availTo int64) (plans.PlanEntry, error)
+	GetPlansByUser(user users.User) ([]plans.Plan, error)
 }
 
 // New creates a new instance of the PlanMan Planner
@@ -29,22 +32,100 @@ func New(db PlanData) Planner {
 	}
 }
 
+// NewPlan creates a new plan, owned by the given User
+// The caller should call errors.Is on the error returned from this function to check if it's
+// a dataerror.ValidationErrors error
+func (p Planner) NewPlan(title string, fromDate time.Time, durationDays uint, owner users.User) (GroupPlan, error) {
+	identifier, err := secid.String(64)
+	if err != nil {
+		return GroupPlan{}, fmt.Errorf("failed creating secure identifier: %w", err)
+	}
+	plan := plans.Plan{
+		OwnerID:      owner.ID,
+		Identifier:   identifier,
+		Title:        title,
+		FromDate:     fromDate,
+		DurationDays: durationDays,
+	}
+	if err := p.data.CreatePlan(&plan); err != nil {
+		return GroupPlan{}, fmt.Errorf("failed creating the plan in the database: %w", err)
+	}
+
+	// Take the newly-saved plan object and turn it into the local GroupPlan one
+	groupPlan := GroupPlan{}
+	groupPlan.FillFromDataType(plan)
+
+	// And return it with no error
+	return groupPlan, nil
+}
+
+// GetPlans returns a list of all the user's plans
+func (p Planner) GetPlans(user users.User) ([]GroupPlan, error) {
+	plans, err := p.data.GetPlansByUser(user)
+	if err != nil {
+		// Just return this one without wrapping, it'd just be redundant info here
+		return nil, err
+	}
+	// Change the data types into GroupPlans
+	groupPlans := make([]GroupPlan, len(plans))
+	for index, plan := range plans {
+		current := GroupPlan{}
+		current.FillFromDataType(plan)
+		groupPlans[index] = current
+	}
+
+	return groupPlans, nil
+}
+
+// AddEntry creates a new entry for availability for a plan, identified by the given identifier.
+func (p Planner) AddEntry(planIdentifier string, user users.User, startAtUnix, endAtUnix int64) (PlanEntry, error) {
+	// Get the plan based on identifier
+	plan, err := p.data.GetPlan(planIdentifier)
+	if err != nil {
+		return PlanEntry{}, fmt.Errorf("no plan: %w", err)
+	}
+
+	createdEntry, err := p.data.AddEntry(&plan, user, startAtUnix, endAtUnix)
+	if err != nil {
+		return PlanEntry{}, fmt.Errorf("failed saving entry: %w", err)
+	}
+
+	// Now just convert createdEntry to PlanEntry
+	finalEntry := PlanEntry{}
+	finalEntry.FillFromDataType(createdEntry)
+
+	return finalEntry, nil
+}
+
+// GetPlan gets a plan from the data layer with the given identifier
+func (p Planner) GetPlan(identifier string) (GroupPlan, error) {
+	plan, err := p.data.GetPlan(identifier)
+	if err != nil {
+		return GroupPlan{}, fmt.Errorf("could not get plan with identifier [%s]: %w", identifier, err)
+	}
+	// Convert plan to GroupPlan
+	groupPlan := GroupPlan{}
+	groupPlan.FillFromDataType(plan)
+
+	return groupPlan, nil
+}
+
 // GroupPlan represents a single plan
 type GroupPlan struct {
-	Owner      userman.User `json:"owner"`
-	Identifier string       `json:"identifier"`
-	Title      string       `json:"title"`
-	FromDate   time.Time    `json:"from_date"`
-	ToDate     time.Time    `json:"to_date"`
-	Entries    []PlanEntry  `json:"entry"`
+	Owner        userman.User `json:"owner"`
+	Identifier   string       `json:"identifier"`
+	Title        string       `json:"title"`
+	FromDate     time.Time    `json:"from_date"`
+	DurationDays uint         `json:"duration_days"`
+	Entries      []PlanEntry  `json:"entry"`
 }
 
 // PlanEntry contains the specifics of a single plan entry
 type PlanEntry struct {
-	EntryID     uint         `json:"entry_id"`
-	User        userman.User `json:"user"`
-	StartAtUnix int64        `json:"start_at_unix"`
-	EndAtUnix   int64        `json:"end_at_unix"`
+	EntryID         uint         `json:"entry_id"`
+	User            userman.User `json:"user"`
+	StartAtUnix     int64        `json:"start_at_unix"`
+	DurationSeconds int64        `json:"duration_seconds"`
 }
 
 // FillFromDataType fills the GroupPlan object from the provided database type
@@ -56,7 +137,7 @@ func (g *GroupPlan) FillFromDataType(plan plans.Plan) {
 	g.Identifier = plan.Identifier
 	g.Title = plan.Title
 	g.FromDate = plan.FromDate
-	g.ToDate = plan.ToDate
+	g.DurationDays = plan.DurationDays
 	g.Entries = make([]PlanEntry, len(plan.Entries))
 	for index, entry := range plan.Entries {
 		fill := PlanEntry{}
@@ -73,5 +154,5 @@ func (p *PlanEntry) FillFromDataType(entry plans.PlanEntry) {
 		AvatarURL:   entry.User.ProfilePictureURL,
 	}
 	p.StartAtUnix = entry.StartTimeUnix
-	p.EndAtUnix = entry.EndTimeUnix
+	p.DurationSeconds = entry.DurationSeconds
 }

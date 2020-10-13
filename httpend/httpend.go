@@ -7,6 +7,7 @@ import (
 
 	"github.com/wallnutkraken/groupplan/groupdata"
 	"github.com/wallnutkraken/groupplan/httpend/plan"
+	"github.com/wallnutkraken/groupplan/planman"
 
 	"golang.org/x/crypto/acme/autocert"
 
@@ -33,7 +34,7 @@ func New(cfg config.AppSettings, db groupdata.Data) Endpoint {
 	}
 	// Initialize the sub-handlers
 	e.authHandler = userauth.New(e.router, userman.New(db.Users()), cfg)
-	e.planHanlder = plan.New(e.router, e.authHandler)
+	e.planHanlder = plan.New(e.router, e.authHandler, planman.New(db.Plans()))
 
 	e.router.StaticFS("static", http.Dir("frontend/static"))
 	// And HTML endpoint methods
