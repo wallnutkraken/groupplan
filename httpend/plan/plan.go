@@ -62,7 +62,7 @@ func (h Handler) NewPlan(ctx *gin.Context) {
 	}
 	plan, err := h.planner.NewPlan(req.Title, startDate, req.DurationDays, user)
 	if err != nil {
-		if errors.Is(err, dataerror.BaseError{}) {
+		if errors.As(err, &dataerror.BaseError{}) {
 			// User error, return the contents with an error
 			ctx.AbortWithStatusJSON(http.StatusUnprocessableEntity, shtypes.NewUserError(err.Error()))
 			return
@@ -91,7 +91,7 @@ func (h Handler) GetPlan(ctx *gin.Context) {
 
 	plan, err := h.planner.GetPlan(identifier)
 	if err != nil {
-		if errors.Is(err, dataerror.BaseError{}) {
+		if errors.As(err, &dataerror.BaseError{}) {
 			// User error, return the contents with an error
 			ctx.AbortWithStatusJSON(http.StatusUnprocessableEntity, shtypes.NewUserError(err.Error()))
 			return

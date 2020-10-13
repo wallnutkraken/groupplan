@@ -36,11 +36,12 @@ func New(db PlanData) Planner {
 // The caller should call errors.Is on the error returned from this function to check if it's
 // a dataerror.ValidationErrors error
 func (p Planner) NewPlan(title string, fromDate time.Time, durationDays uint, owner users.User) (GroupPlan, error) {
-	identifier, err := secid.String(64)
+	identifier, err := secid.String(16)
 	if err != nil {
 		return GroupPlan{}, fmt.Errorf("failed creating secure identifier: %w", err)
 	}
 	plan := plans.Plan{
+		Owner:        owner,
 		OwnerID:      owner.ID,
 		Identifier:   identifier,
 		Title:        title,
@@ -117,7 +118,7 @@ type GroupPlan struct {
 	Title        string       `json:"title"`
 	FromDate     time.Time    `json:"from_date"`
 	DurationDays uint         `json:"duration_days"`
-	Entries      []PlanEntry  `json:"entry"`
+	Entries      []PlanEntry  `json:"entries"`
 }
 
 // PlanEntry contains the specifics of a single plan entry

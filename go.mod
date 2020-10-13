@@ -7,6 +7,7 @@ require (
 	github.com/gin-gonic/autotls v0.0.3
 	github.com/gin-gonic/gin v1.6.3
 	github.com/google/uuid v1.1.2
+	github.com/lytics/base62 v0.0.0-20180808010106-0ee4de5a5d6d
 	github.com/markbates/goth v1.65.0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.7.0

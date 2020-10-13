@@ -135,11 +135,17 @@ type Plan struct {
 // FromDateZeroHour takes the given start date and returns a time
 // 0 seconds after the start of that date
 func (p Plan) FromDateZeroHour() time.Time {
-	y, m, d := p.FromDate.Date()
+	return TimeToZeroHour(p.FromDate)
+
+}
+
+// TimeToZeroHour returns the given time, at 0 seconds past that date
+func TimeToZeroHour(t time.Time) time.Time {
+	y, m, d := t.Date()
 	zeroed, err := time.Parse("2006-1-2", fmt.Sprintf("%d-%d-%d", y, m, d))
 	if err != nil {
 		// Failed, just return unzeroed
-		return p.FromDate
+		return t
 	}
 	return zeroed
 }
@@ -152,7 +158,7 @@ func (p Plan) EndDate() time.Time {
 // Validate checks the validity of the data inside the Plan object.
 // Will return nil if the data is valid.
 func (p Plan) Validate() error {
-	if p.FromDateZeroHour().Before(time.Now()) {
+	if p.FromDateZeroHour().Before(TimeToZeroHour(time.Now())) {
 		return dataerror.ErrBasic("Date cannot be in the past")
 	}
 	if p.DurationDays == 0 {
