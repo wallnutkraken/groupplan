@@ -7,7 +7,6 @@ import (
 	"github.com/wallnutkraken/groupplan/config"
 	"github.com/wallnutkraken/groupplan/groupdata"
 	"github.com/wallnutkraken/groupplan/httpend"
-	"github.com/wallnutkraken/groupplan/userman"
 )
 
 // DBPath is the static path to the database file
@@ -31,7 +30,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("Failed loading database at [%s]: %s", DBPath, err.Error())
 	}
-	endpoint := httpend.New(cfg, userman.New(db.Users()))
+	endpoint := httpend.New(cfg, db)
 	// Start listening
 	if err := endpoint.Start(); err != nil {
 		fmt.Printf("Error while listening: %s\n", err.Error())

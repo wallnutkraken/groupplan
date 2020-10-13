@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/wallnutkraken/groupplan/groupdata"
+	"github.com/wallnutkraken/groupplan/httpend/plan"
+
 	"golang.org/x/crypto/acme/autocert"
 
 	"github.com/gin-gonic/autotls"
@@ -19,21 +22,22 @@ type Endpoint struct {
 	hostname    string
 	router      *gin.Engine
 	authHandler *userauth.Handler
+	planHanlder *plan.Handler
 }
 
 // New creates a new instance of the HTTP endpoint with the given port
-func New(cfg config.AppSettings, userMan *userman.Manager) Endpoint {
+func New(cfg config.AppSettings, db groupdata.Data) Endpoint {
 	e := Endpoint{
 		router:   gin.Default(),
 		hostname: cfg.Hostname,
 	}
-	e.authHandler = userauth.New(e.router, userMan, cfg)
+	// Initialize the sub-handlers
+	e.authHandler = userauth.New(e.router, userman.New(db.Users()), cfg)
+	e.planHanlder = plan.New(e.router, e.authHandler)
 
-	// Add the HTML template Glob(?) and a handler for static files
-	e.router.LoadHTMLGlob("frontend/html/*/*.html")
 	e.router.StaticFS("static", http.Dir("frontend/static"))
 	// And HTML endpoint methods
-	e.router.GET("", e.Index)
+	e.router.GET("/", e.Index)
 
 	// Ping handler
 	e.router.GET("/ping", func(c *gin.Context) {
@@ -45,14 +49,16 @@ func New(cfg config.AppSettings, userMan *userman.Manager) Endpoint {
 
 // Index returns the HTML index document
 func (e Endpoint) Index(ctx *gin.Context) {
-	user, err := e.authHandler.GetJWT(ctx)
+	_, err := e.authHandler.GetJWT(ctx)
 	if err != nil {
 		// User not authed, send them to login
-		ctx.HTML(http.StatusOK, "login.html", nil)
+		fmt.Println("returning login")
+		ctx.File("frontend/login.html")
 		return
 	}
 	// User authed, give them the dashboard
-	ctx.HTML(http.StatusOK, "dashboard.html", user)
+	fmt.Println("Returning dashboard")
+	ctx.File("frontend/dashboard.html")
 }
 
 // Start starts listening, this is a blocking call

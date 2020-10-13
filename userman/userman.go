@@ -58,3 +58,9 @@ func (m *Manager) Authenticate(email, avatarURL, provider, identifier, displayNa
 func (m *Manager) GetAuthenticatedUser(email string) (users.User, error) {
 	return m.users.GetOrCreateUser(email, "", "")
 }
+
+// User represents a single user
+type User struct {
+	DisplayName string `json:"display_name"`
+	AvatarURL   string `json:"avatar_url"`
+}

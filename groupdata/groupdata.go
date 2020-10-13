@@ -4,6 +4,8 @@ package groupdata
 import (
 	"fmt"
 
+	"github.com/wallnutkraken/groupplan/groupdata/plans"
+
 	"github.com/wallnutkraken/groupplan/groupdata/users"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -52,6 +54,7 @@ func (d Data) Users() users.UserHandler {
 func (d Data) migrate() error {
 	allDataTypes := []interface{}{}
 	allDataTypes = append(allDataTypes, users.AllTypes()...)
+	allDataTypes = append(allDataTypes, plans.AllTypes()...)
 
 	// Migrate the data types first
 	if err := d.db.AutoMigrate(allDataTypes...); err != nil {

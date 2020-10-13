@@ -4,7 +4,6 @@ package userauth
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -35,10 +34,16 @@ type Handler struct {
 	expireAfterSeconds int64
 }
 
+// Authenticator is the interface for objects that allow JWT authentication for other (non-sign in) endpoints
+type Authenticator interface {
+	GetJWT(ctx *gin.Context) (users.User, error)
+}
+
 // GroupPlanClaims is the JWT authentication claims object for GroupPlan
 type GroupPlanClaims struct {
 	jwt.StandardClaims
-	Email string `json:"email"`
+	Email     string `json:"email"`
+	AvatarURL string `json:"pfp"`
 }
 
 // generateJWTSecret generates a secure random string for use with JWT
@@ -124,13 +129,13 @@ func (h Handler) AuthCallback(ctx *gin.Context) {
 
 	// Create a JWT for the user
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, GroupPlanClaims{
-		Email: user.Email,
+		Email:     user.Email,
+		AvatarURL: user.AvatarURL,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Unix() + h.expireAfterSeconds,
 		},
 	})
 	// Sign the token
-	fmt.Println(h.jwtSecret)
 	signed, err := token.SignedString([]byte(h.jwtSecret))
 	if err != nil {
 		logrus.WithError(err).Error("Failed signing JWT")
@@ -140,8 +145,6 @@ func (h Handler) AuthCallback(ctx *gin.Context) {
 
 	// Create user info. We don't actually care about the returned object here, because err being nil
 	// guarantees we actually created the user
-	f, _ := json.Marshal(user)
-	fmt.Printf("%s", string(f))
 	_, err = h.userMan.Authenticate(user.Email, user.AvatarURL, provider, user.UserID, user.Name)
 	if err != nil {
 		// Aight, err wasn't nil
