@@ -49,8 +49,11 @@ func (h Handler) NewPlan(ctx *gin.Context) {
 		return
 	}
 
-	// Parse the request body
-	req := CreatePlanRequest{}
+	// Parse the request body, add a default value for MinAvailabilitySeconds
+	// at 5 minutes.
+	req := CreatePlanRequest{
+		MinAvailabilitySeconds: 60 * 5,
+	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.AbortWithStatusJSON(http.StatusUnprocessableEntity, shtypes.NewUserError(err.Error()))
 		return

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/wallnutkraken/groupplan/groupdata/dataerror"
+
 	"github.com/wallnutkraken/groupplan/groupdata/plans"
 	"github.com/wallnutkraken/groupplan/groupdata/users"
 	"github.com/wallnutkraken/groupplan/secid"
@@ -85,6 +87,10 @@ func (p Planner) AddEntry(planIdentifier string, user users.User, startAtUnix, d
 	if err != nil {
 		return PlanEntry{}, fmt.Errorf("no plan: %w", err)
 	}
+	// Check that the duration is longer than the plan's minimum availability
+	if plan.MinimumAvailabilitySeconds > uint(duration) {
+		return PlanEntry{}, dataerror.ErrBasic(fmt.Sprintf("Entry duration cannot be shorter than the plan's (%d)", plan.MinimumAvailabilitySeconds))
+	}
 
 	createdEntry, err := p.data.AddEntry(&plan, user, startAtUnix, duration)
 	if err != nil {
@@ -113,12 +119,13 @@ func (p Planner) GetPlan(identifier string) (GroupPlan, error) {
 
 // GroupPlan represents a single plan
 type GroupPlan struct {
-	Owner        userman.User `json:"owner"`
-	Identifier   string       `json:"identifier"`
-	Title        string       `json:"title"`
-	FromDate     time.Time    `json:"from_date"`
-	DurationDays uint         `json:"duration_days"`
-	Entries      []PlanEntry  `json:"entries"`
+	Owner               userman.User `json:"owner"`
+	Identifier          string       `json:"identifier"`
+	Title               string       `json:"title"`
+	FromDate            time.Time    `json:"from_date"`
+	DurationDays        uint         `json:"duration_days"`
+	MinAvailabilitySecs uint         `json:"min_availability_seconds"`
+	Entries             []PlanEntry  `json:"entries"`
 }
 
 // PlanEntry contains the specifics of a single plan entry
@@ -140,6 +147,7 @@ func (g *GroupPlan) FillFromDataType(plan plans.Plan) {
 	g.FromDate = plan.FromDate
 	g.DurationDays = plan.DurationDays
 	g.Entries = make([]PlanEntry, len(plan.Entries))
+	g.MinAvailabilitySecs = plan.MinimumAvailabilitySeconds
 	for index, entry := range plan.Entries {
 		fill := PlanEntry{}
 		fill.FillFromDataType(entry)

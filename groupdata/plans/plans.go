@@ -123,13 +123,14 @@ func (p *PlanHandler) AddEntry(plan *Plan, user users.User, availFrom, durationS
 // Plan represents a plan in the data layer
 type Plan struct {
 	gorm.Model
-	Owner        users.User  `gorm:"foreignkey:OwnerID"`
-	OwnerID      uint        `gorm:"not null"`
-	Identifier   string      `gorm:"index;not null"`
-	Title        string      `gorm:"not null"`
-	FromDate     time.Time   `gorm:"not null"`
-	DurationDays uint        `gorm:"not null"`
-	Entries      []PlanEntry `gorm:"foreignkey:PlanID"`
+	Owner                      users.User  `gorm:"foreignkey:OwnerID"`
+	OwnerID                    uint        `gorm:"not null"`
+	Identifier                 string      `gorm:"index;not null"`
+	Title                      string      `gorm:"not null"`
+	FromDate                   time.Time   `gorm:"not null"`
+	DurationDays               uint        `gorm:"not null"`
+	Entries                    []PlanEntry `gorm:"foreignkey:PlanID"`
+	MinimumAvailabilitySeconds uint        `gorm:"not null"`
 }
 
 // FromDateZeroHour takes the given start date and returns a time
@@ -160,6 +161,10 @@ func (p Plan) EndDate() time.Time {
 func (p Plan) Validate() error {
 	if p.FromDateZeroHour().Before(TimeToZeroHour(time.Now())) {
 		return dataerror.ErrBasic("Date cannot be in the past")
+	}
+	var minAvailability uint = 60
+	if p.MinimumAvailabilitySeconds < minAvailability {
+		return dataerror.ErrBasic(fmt.Sprintf("Cannot have minimum availability be under %d seconds", minAvailability))
 	}
 	if p.DurationDays == 0 {
 		return dataerror.ErrBasic("Duration cannot be zero days")
