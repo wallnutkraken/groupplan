@@ -3,7 +3,11 @@ const VueLoaderPlugin = require('vue-loader/lib/plugin');
 
 module.exports = {
     entry: './main.js',
-
+    resolve: {
+        alias: {
+            vue: 'vue/dist/vue.js'
+        },
+    },
     module: {
         rules: [
             { test: /\.js$/, use: 'babel-loader' },
@@ -12,6 +16,10 @@ module.exports = {
         ]
     },
     plugins: [
+        new HtmlWebpackPlugin({
+            template: '../dashboard.html',
+            filename: '../debugdash.html',
+        }),
         new VueLoaderPlugin(),
     ],
     output: {
