@@ -1,9 +1,11 @@
 <template>
-	<nav>
-		<img class="avatar" :src="avatarURL">
-		<p>{{displayName}}</p>
-		<p>{{debug_cookieinfo}}</p>
-	</nav>
+<nav class="navbar fixed-top navbar-light bg-light">
+  <a class="navbar-brand">
+    <img :src="avatarURL" width="30" height="30" class="d-inline-block align-top avatar" alt="">
+    {{displayName}}
+  </a>
+  <button type="button" class="btn btn-success">New Plan</button>
+</nav>
 </template>
 
 
@@ -11,12 +13,13 @@
 export default {
 	name: 'Navbar',
 	data() {
+		// Get the JWT claims object, it should contain the user's display name and profile picture
 		var jwtCookieName = 'groupplan_jwt';
-		var cookies = this.$cookie.get(jwtCookieName);
+		var jwtBase64 = this.$cookies.get(jwtCookieName).split('.')[1];
+		var claims = JSON.parse(atob(jwtBase64));
 		return {
-			avatarURL: "",
-			displayName: "",
-			debug_cookieinfo: cookies,
+			avatarURL: claims.pfp,
+			displayName: claims.name,
 		}
 	}
 }

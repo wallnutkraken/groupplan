@@ -2,7 +2,7 @@
   <div class="hello">
     <h1>{{ msg }}</h1>
     <h2>I need help</h2>
-    <h2>How do I vue, my css doesnt work</h2>
+    <h2>How do I vue, my css <strike>doesnt work</strike></h2>
   </div>
 </template>
 

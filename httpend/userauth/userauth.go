@@ -42,8 +42,9 @@ type Authenticator interface {
 // GroupPlanClaims is the JWT authentication claims object for GroupPlan
 type GroupPlanClaims struct {
 	jwt.StandardClaims
-	Email     string `json:"email"`
-	AvatarURL string `json:"pfp"`
+	Email       string `json:"email"`
+	AvatarURL   string `json:"pfp"`
+	DisplayName string `json:"name"`
 }
 
 // generateJWTSecret generates a secure random string for use with JWT
@@ -129,8 +130,9 @@ func (h Handler) AuthCallback(ctx *gin.Context) {
 
 	// Create a JWT for the user
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, GroupPlanClaims{
-		Email:     user.Email,
-		AvatarURL: user.AvatarURL,
+		Email:       user.Email,
+		AvatarURL:   user.AvatarURL,
+		DisplayName: user.Name,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Unix() + h.expireAfterSeconds,
 		},
