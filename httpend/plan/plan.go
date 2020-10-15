@@ -36,6 +36,7 @@ func New(router *gin.Engine, auth userauth.Authenticator, planner planman.Planne
 	handl.group.GET(":identifier", handl.GetPlan)
 	handl.group.GET("", handl.MyPlans)
 	handl.group.PUT(":identifier", handl.AddEntry)
+	handl.group.DELETE(":identifier", handl.DeletePlan)
 
 	return handl
 }
@@ -164,4 +165,32 @@ func (h Handler) AddEntry(ctx *gin.Context) {
 
 	// Entry created, return the created object to the user
 	ctx.JSON(http.StatusCreated, entry)
+}
+
+// DeletePlan deletes an existing plan
+func (h Handler) DeletePlan(ctx *gin.Context) {
+	// Check authorization
+	user, err := h.auther.GetJWT(ctx)
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, shtypes.NewUserError("Please log in"))
+		return
+	}
+	// Get the identifier
+	identifier := ctx.Param("identifier")
+
+	if err := h.planner.DeletePlan(identifier, user); err != nil {
+		userError := dataerror.BaseError{}
+		if errors.As(err, &userError) {
+			// User error, return the contents with an error
+			ctx.AbortWithStatusJSON(userError.StatusCode(), shtypes.NewUserError(userError.Error()))
+			return
+		}
+		// Non-user error, log it and return 500
+		refErr := shtypes.NewServerError()
+		logrus.WithError(err).Errorf("[%s]", refErr.Reference)
+		ctx.AbortWithStatusJSON(http.StatusInternalServerError, refErr)
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
 }

@@ -104,6 +104,21 @@ func (p Planner) AddEntry(planIdentifier string, user users.User, startAtUnix, d
 	return finalEntry, nil
 }
 
+// DeletePlan deletes a plan with the given identifier if the owner of the plan is the given user
+func (p Planner) DeletePlan(identifier string, user users.User) error {
+	// Get the plan to check the owner
+	plan, err := p.data.GetPlan(identifier)
+	if err != nil {
+		return fmt.Errorf("could not get plan [%s]: %w", identifier, err)
+	}
+	if plan.OwnerID != user.ID {
+		return dataerror.ErrUnauthorized("you are not the owner of this plan")
+	}
+
+	// This user is the owner of the plan, delete it
+	return p.data.DeletePlan(plan)
+}
+
 // GetPlan gets a plan from the data layer with the given identifier
 func (p Planner) GetPlan(identifier string) (GroupPlan, error) {
 	plan, err := p.data.GetPlan(identifier)

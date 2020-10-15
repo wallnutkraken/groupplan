@@ -47,7 +47,7 @@ func (p *PlanHandler) CreatePlan(plan *Plan) error {
 func (p *PlanHandler) GetPlan(identifier string) (plan Plan, err error) {
 	if err = p.db.Preload("Entries.User").Preload(clause.Associations).Where(Plan{Identifier: identifier}).First(&plan).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			err = dataerror.ErrBasic("no such plan exists")
+			err = dataerror.ErrNotFound("no such plan exists")
 		}
 		err = fmt.Errorf("failed getting plan [%s]: %w", identifier, err)
 	}
