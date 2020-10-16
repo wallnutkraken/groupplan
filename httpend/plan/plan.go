@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -37,6 +38,8 @@ func New(router *gin.Engine, auth userauth.Authenticator, planner planman.Planne
 	handl.group.GET("", handl.MyPlans)
 	handl.group.PUT(":identifier", handl.AddEntry)
 	handl.group.DELETE(":identifier", handl.DeletePlan)
+	handl.group.DELETE(":identifier/entries/:entryID", handl.DeleteEntry)
+	handl.group.GET(":identifier/entries", handl.GetEntriesForPlan)
 
 	return handl
 }
@@ -193,4 +196,67 @@ func (h Handler) DeletePlan(ctx *gin.Context) {
 	}
 
 	ctx.Status(http.StatusNoContent)
+}
+
+// DeleteEntry is the endpoint handling the deletion of an availability entry for a plan
+func (h Handler) DeleteEntry(ctx *gin.Context) {
+	// Check authorization
+	user, err := h.auther.GetJWT(ctx)
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, shtypes.NewUserError("Please log in"))
+		return
+	}
+	// Here's the deal, this endpoint is in /plans/:planID/entries/:entryID
+	// Why does it have a :planID even if it doesn't care about plans, just the entries?
+	// Because of gin's router. If I set up a route like DELETE /plans/entries/:entryID
+	// It will cause a panic on launch, just the way the router works. So don't blame me,
+	// please.
+
+	// Get the entryID, parse into uint
+	entryIDString := ctx.Param("entryID")
+	entryID, err := strconv.ParseUint(entryIDString, 10, 32)
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, shtypes.NewUserError("entry ID is not an unsigned integer"))
+		return
+	}
+
+	if err := h.planner.DeleteEntry(uint(entryID), user); err != nil {
+		userError := dataerror.BaseError{}
+		if errors.As(err, &userError) {
+			// User error, return the contents with an error
+			ctx.AbortWithStatusJSON(userError.StatusCode(), shtypes.NewUserError(userError.Error()))
+			return
+		}
+		// Non-user error, log it and return 500
+		refErr := shtypes.NewServerError()
+		logrus.WithError(err).Errorf("[%s]", refErr.Reference)
+		ctx.AbortWithStatusJSON(http.StatusInternalServerError, refErr)
+		return
+	}
+
+	// No errors, return a No Content
+	ctx.Status(http.StatusNoContent)
+}
+
+// GetEntriesForPlan returns the user's only the entries for the plan requested.
+func (h Handler) GetEntriesForPlan(ctx *gin.Context) {
+	// Check authorization
+	user, err := h.auther.GetJWT(ctx)
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, shtypes.NewUserError("Please log in"))
+		return
+	}
+
+	identifier := ctx.Param("identifier")
+	entries, err := h.planner.GetEntriesOnPlanByUser(identifier, user)
+	if err != nil {
+		// There can be no user input error, so we just log whatever this error is
+		// and return an internal server error
+		refErr := shtypes.NewServerError()
+		logrus.WithError(err).Errorf("[%s]", refErr.Reference)
+		ctx.AbortWithStatusJSON(http.StatusInternalServerError, refErr)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, entries)
 }

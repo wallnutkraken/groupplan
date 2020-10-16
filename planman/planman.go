@@ -25,6 +25,9 @@ type PlanData interface {
 	DeletePlan(plan plans.Plan) error
 	AddEntry(plan *plans.Plan, user users.User, availFrom, duration int64) (plans.PlanEntry, error)
 	GetPlansByUser(user users.User) ([]plans.Plan, error)
+	DeleteEntry(entryID uint) error
+	GetEntry(entryID uint) (entry plans.PlanEntry, err error)
+	GetEntriesOnPlanByUser(planID string, user users.User) ([]plans.PlanEntry, error)
 }
 
 // New creates a new instance of the PlanMan Planner
@@ -80,6 +83,23 @@ func (p Planner) GetPlans(user users.User) ([]GroupPlan, error) {
 	return groupPlans, nil
 }
 
+// GetEntriesOnPlanByUser gets a list of availability entries for a given user on the
+// specified plan
+func (p Planner) GetEntriesOnPlanByUser(planIdentifier string, user users.User) ([]PlanEntry, error) {
+	entries, err := p.data.GetEntriesOnPlanByUser(planIdentifier, user)
+	if err != nil {
+		return nil, err
+	}
+	// Convert the entries into PlanEntry
+	converted := make([]PlanEntry, len(entries))
+	for index, entry := range entries {
+		conv := PlanEntry{}
+		conv.FillFromDataType(entry)
+		converted[index] = conv
+	}
+	return converted, nil
+}
+
 // AddEntry creates a new entry for availability for a plan, identified by the given identifier.
 func (p Planner) AddEntry(planIdentifier string, user users.User, startAtUnix, duration int64) (PlanEntry, error) {
 	// Get the plan based on identifier
@@ -117,6 +137,22 @@ func (p Planner) DeletePlan(identifier string, user users.User) error {
 
 	// This user is the owner of the plan, delete it
 	return p.data.DeletePlan(plan)
+}
+
+// DeleteEntry deletes an availability entry inside a plan with the given entry ID, if the user
+// is the owner of the entry
+func (p Planner) DeleteEntry(entryID uint, user users.User) error {
+	// Get the entry first to check if the user is the owner
+	entry, err := p.data.GetEntry(entryID)
+	if err != nil {
+		return fmt.Errorf("could not get entry: %w", err)
+	}
+	if entry.UserID != user.ID {
+		return dataerror.ErrUnauthorized("you are not the owner of this entry")
+	}
+
+	// User is the owner, delete it
+	return p.data.DeleteEntry(entry.ID)
 }
 
 // GetPlan gets a plan from the data layer with the given identifier

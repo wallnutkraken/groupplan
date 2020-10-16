@@ -43,6 +43,21 @@ func (p *PlanHandler) CreatePlan(plan *Plan) error {
 	return nil
 }
 
+// GetEntriesOnPlanByUser gets a list of availability entries for a given user on the
+// specified plan
+func (p *PlanHandler) GetEntriesOnPlanByUser(planID string, user users.User) ([]PlanEntry, error) {
+	entries := []PlanEntry{}
+	if err := p.db.Where(Plan{
+		Identifier: planID,
+	}, PlanEntry{
+		UserID: user.ID,
+	}).Find(&entries).Error; err != nil {
+		return nil, fmt.Errorf("failed getting entries on plan [%s] made by user with id [%d]: %w", planID, user.ID, err)
+	}
+
+	return entries, nil
+}
+
 // GetPlan returns an existing Plan by the identifier
 func (p *PlanHandler) GetPlan(identifier string) (plan Plan, err error) {
 	if err = p.db.Preload("Entries.User").Preload(clause.Associations).Where(Plan{Identifier: identifier}).First(&plan).Error; err != nil {
@@ -70,6 +85,38 @@ func (p *PlanHandler) GetPlansByUser(user users.User) ([]Plan, error) {
 	}
 
 	return plans, nil
+}
+
+// DeleteEntry deletes the plan entry with the associated ID
+func (p *PlanHandler) DeleteEntry(entryID uint) error {
+	if err := p.db.Delete(&PlanEntry{
+		Model: gorm.Model{
+			ID: entryID,
+		},
+	}).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return dataerror.ErrNotFound("entry not found")
+		}
+		return fmt.Errorf("failed deleting entry with ID [%d]: %w", entryID, err)
+	}
+
+	return nil
+}
+
+// GetEntry fetches a single entry with the given entry ID
+func (p *PlanHandler) GetEntry(entryID uint) (entry PlanEntry, err error) {
+	if err = p.db.Where(PlanEntry{
+		Model: gorm.Model{
+			ID: entryID,
+		},
+	}).First(&entry).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			err = dataerror.ErrNotFound("entry not found")
+			return
+		}
+		err = fmt.Errorf("failed retrieving entry with ID [%d]: %w", entryID, err)
+	}
+	return
 }
 
 // AddEntry creates a new plan availability entry for a user with a given time range,
@@ -137,7 +184,6 @@ type Plan struct {
 // 0 seconds after the start of that date
 func (p Plan) FromDateZeroHour() time.Time {
 	return TimeToZeroHour(p.FromDate)
-
 }
 
 // TimeToZeroHour returns the given time, at 0 seconds past that date
