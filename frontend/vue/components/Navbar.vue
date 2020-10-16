@@ -4,19 +4,18 @@
     <img :src="avatarURL" width="30" height="30" class="d-inline-block align-top avatar" alt="">
     {{displayName}}
   </a>
-  <button type="button" class="btn btn-success">New Plan</button>
+  <button type="button" v-on:click="enablenewplan" class="btn btn-success">New Plan</button>
 </nav>
 </template>
 
 
 <script>
+
 export default {
 	name: 'Navbar',
 	data() {
 		// Get the JWT claims object, it should contain the user's display name and profile picture
-		var jwtCookieName = 'groupplan_jwt';
-		var jwtBase64 = this.$cookies.get(jwtCookieName).split('.')[1];
-		var claims = JSON.parse(atob(jwtBase64));
+		var claims = this.getClaims();
 		return {
 			avatarURL: claims.pfp,
 			displayName: claims.name,

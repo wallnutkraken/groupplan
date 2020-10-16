@@ -1,19 +1,35 @@
 <template>
 <div id="app">
   <Navbar/>
-  <HelloWorld/>
+  <NewPlanForm />
+  <!-- v-if="showNewPlan == true" -->
 </div>
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue'
 import Navbar from './components/Navbar.vue'
+import NewPlanForm from "./components/NewPlanForm.vue"
 
 export default {
   name: 'App',
   components: {
-    HelloWorld,
-    Navbar
+    Navbar,
+    NewPlanForm,
+  },
+  data() {
+    return {
+      showNewPlan: false,
+    }
+  },
+  
+  methods: {
+    enablenewplan: function(event) {
+      if (this.showNewPlan == true) {
+        // TODO: reset the plan
+        return;
+      }
+      this.showNewPlan = true;
+    },
   },
 }
 </script>
